@@ -137,6 +137,15 @@ class CourseReportCommand extends ContainerAwareCommand
                     $coursesByCount[$offering->getCourse()->getName()] = $timesAdded;
                 }
             }
+            $count = count($offerings);
+            $network->outInitiative($subject, $count);
+            $network->beforeOffering();
+            $output->writeln("<ol>");
+            foreach($offerings as $offering)
+            {               
+                $network->outOffering( $offering );
+            }
+            $output->writeln("</ol>");
         }
 
 
