@@ -68,7 +68,6 @@ class CourseReportCommand extends ContainerAwareCommand
             }
 
 
-            $offeringsByInitiative[$initiative][] = $offering;
             $subject = $offering->getCourse()->getStream();
             if($subject->getParentStream())
             {
@@ -99,6 +98,9 @@ class CourseReportCommand extends ContainerAwareCommand
         if($isReddit)
         {
             foreach($offeringsByLevel as $level => $offerings)
+
+            $subject = $offering->getCourse()->getStream();
+            if($subject->getParentStream())
             {
                 $count = count($offerings);
                 $network->outLevel(ucfirst($level), $count);
@@ -137,6 +139,8 @@ class CourseReportCommand extends ContainerAwareCommand
                     $coursesByCount[$offering->getCourse()->getName()] = $timesAdded;
                 }
             }
+
+            $offeringsByStream[$subject->getName()][] = $offering;
             $count = count($offerings);
             $network->outInitiative($subject, $count);
             $network->beforeOffering();
