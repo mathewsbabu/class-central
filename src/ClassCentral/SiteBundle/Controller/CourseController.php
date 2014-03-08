@@ -322,7 +322,15 @@ class CourseController extends Controller
             $course['name']
         );
 
-       return $this->render(
+        // Get the latest 2 news item
+        $newsController = new NewsController();
+        $news = $cache->get('recent_news_course_page',array($newsController,'getRecentNews'), array($this->getDoctrine()->getManager(),2));
+
+
+        $recommendations = $this->get('Cache')->get('course_recommendation_'. $courseId, array($this,'getCourseRecommendations'), array($courseId));
+
+
+        return $this->render(
            'ClassCentralSiteBundle:Course:mooc.html.twig',
            array('page' => 'course',
                  'course'=>$course,
@@ -334,8 +342,42 @@ class CourseController extends Controller
                  'listTypes' => UserCourse::$lists,
                  'rating' => $rating,
                  'reviews' => $reviews,
-                 'breadcrumbs' => $breadcrumbs
+                 'breadcrumbs' => $breadcrumbs,
+                 'news' => $news,
+                 'recommendations' => $recommendations
        ));
+    }
+
+    public function getCourseRecommendations($courseId)
+    {
+        $recommendations = array();
+        $em = $this->getDoctrine()->getManager();
+
+        // Get the course recommendations
+        $recs = $em->getRepository('ClassCentralSiteBundle:CourseRecommendation')->findBy(array(
+            'course' => $em->getRepository('ClassCentralSiteBundle:Course')->find($courseId)
+        ));
+
+        if( !empty($recs) )
+        {
+            $count = 0;
+            foreach($recs as $rec)
+            {
+                $recCourse = $rec->getRecommendedCourse();
+                if($recCourse->getStatus() < CourseStatus::COURSE_NOT_SHOWN_LOWER_BOUND)
+                {
+                    $recommendations[] = $this->get('Cache')->get( 'course_' . $recCourse->getId(), array($this,'getCourseDetails'), array($recCourse->getId(),$em) );
+                    $count++;
+                }
+
+                if($count == 5)
+                {
+                    break; // Show top recommendations
+                }
+            }
+        }
+
+        return $recommendations;
     }
 
     public function shareAction($id)

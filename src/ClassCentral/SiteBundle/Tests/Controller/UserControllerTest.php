@@ -78,14 +78,42 @@ class UserControllerTest extends WebTestCase
         $client->submit($form);
         $crawler = $client->followRedirect();
 
-        // Should be the profile page
-        $this->assertTrue($crawler->filter('h1[class=cc-page-header]')->count() > 0);
+        // Should be the My Courses page
+        //$this->assertEquals('/user/courses', $client->getResponse()->headers->get('location'));
+        $this->assertCount(1,
+            $crawler->filter("h1[class=cc-page-header]")
+        );
 
         // Check that the user is logged by going to the login page
         $client->request('GET', '/login');
         // Should redirect to the homepage
         $crawler = $client->followRedirect();
         //$this->assertTrue($crawler->filter('table[id=recentlist]')->count() > 0);
+
+    }
+
+    public function testLoginRedirects()
+    {
+        $client = static::createClient();
+
+        // Request a create review page and get redirected to the signup page
+        $client->request('GET','/signup/review/622');
+        $crawler = $client->followRedirect();
+
+        // Request the login page
+        $crawler = $client->request('GET', '/login');
+
+        // Login
+        $form = $crawler->selectButton('Login')->form(array(
+            '_username' => self::$email,
+            '_password' => self::$password
+        ));
+
+        $client->submit($form);
+        $crawler = $client->followRedirect();
+
+        // Get redirected to the create review page
+        $this->assertEquals('/review/new/622', $client->getResponse()->headers->get('location'));
 
     }
 

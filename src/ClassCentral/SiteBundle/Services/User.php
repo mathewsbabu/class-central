@@ -36,6 +36,7 @@ class User {
         $logger = $this->container->get('logger');
         $em = $this->container->get('doctrine')->getManager();
         $router = $this->container->get('router');
+        $session = $this->container->get('session');
         $newsletter = $em->getRepository('ClassCentralSiteBundle:Newsletter')->findOneByCode("mooc-report");
 
         $user = $this->signup($user, $verificationEmail); // true - verification email
@@ -97,6 +98,7 @@ class User {
                 }
             }
 
+
             $userSession->clearSignupReferralDetails();
             $userSession->saveUserInformationInSession(); // Update the session
 
@@ -106,8 +108,44 @@ class User {
             }
         }
 
+        // Check if it was the review first signup later flow
+        $review = $this->createReviewFromSession($user);
+        if($review instanceof \ClassCentral\SiteBundle\Entity\Review)
+        {
+            // Review created successfully. Redirect to the router page
+            return $router->generate('ClassCentralSiteBundle_mooc', array('id'=> $review->getCourse()->getId(),'slug' => $review->getCourse()->getSlug() ));
+        }
+
+
         return $router->generate('user_library');
     }
+
+    /**
+     * Creates review if its stored in a session.
+     * Part of review first signup later flow
+     * @param $user
+     * @param $session
+     * @return bool
+     */
+    public function createReviewFromSession($user)
+    {
+        $session = $this->container->get('session');
+        $userReview = $session->get('user_review');
+        $ru = $this->container->get('review');
+
+        if(!empty($userReview))
+        {
+            // Save the review
+            $courseId = $userReview['courseId'];
+            $review = $ru->saveReview($courseId,$user,$userReview);
+            $session->remove('user_review');
+            return $review;
+        }
+
+        return false;
+    }
+
+
 
     public function signup(\ClassCentral\SiteBundle\Entity\User $user, $emailVerification = true)
     {

@@ -49,10 +49,22 @@ class LoginController extends Controller{
                 // last username entered by the user
                 'last_username' => $session->get(SecurityContext::LAST_USERNAME),
                 'error'         => $error,
+                'redirectUrl' => $this->getLastAccessedPage($session),
             )
         );
     }
 
+    private function getLastAccessedPage($session)
+    {
+        $last_route = $session->get('this_route');
+        $redirectUrl = null;
+        if(! empty($last_route))
+        {
+            $redirectUrl = $this->generateUrl($last_route['name'], $last_route['params']);
+        }
+
+        return $redirectUrl;
+    }
     /**
      * Redirects the user to fb auth url
      * @param Request $request
@@ -138,7 +150,15 @@ class LoginController extends Controller{
                $em->flush();
 
                $userSession->login($user);
-               return $this->redirect( $this->generateUrl('user_library') );
+
+               $redirectUrl =
+                   ($this->getLastAccessedPage($request->getSession())) ?
+                       $this->getLastAccessedPage($request->getSession()):
+                       $this->generateUrl('user_library');
+
+               $logger->info(' LOGIN REDIRECT URL ' . $redirectUrl);
+
+               return $this->redirect( $redirectUrl );
             }
             else
             {

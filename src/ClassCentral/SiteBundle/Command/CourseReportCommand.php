@@ -31,6 +31,7 @@ class CourseReportCommand extends ContainerAwareCommand
         $year = $input->getArgument('year');
         $em = $this->getContainer()->get('doctrine')->getManager();
         $network = NetworkFactory::get( $input->getOption('network'),$output);
+        $network->setContainer($this->getContainer());
         $isReddit = ($input->getOption('network') == 'Reddit') || ($input->getOption('cs') == 'Yes');
         $courseToLevelMap = RedditNetwork::getCourseToLevelMap();
 
@@ -93,6 +94,7 @@ class CourseReportCommand extends ContainerAwareCommand
 
 
         $network->setRouter($this->getContainer()->get('router'));
+
         $coursesByCount = array();
 
         if($isReddit)

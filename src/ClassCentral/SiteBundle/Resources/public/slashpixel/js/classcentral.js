@@ -35,6 +35,16 @@ jQuery(function($) {
         });
     });
 
+    // Completed, Audited, Partially Completed, Drooped
+    var listCourseDone = [
+        3,4,5,6
+    ];
+
+    // Enrolled, Current
+    var listEnrolled = [
+        2,7
+    ];
+
     function addRemoveCourse(listId, courseId, checked,name) {
         try{
          if(checked){
@@ -51,11 +61,41 @@ jQuery(function($) {
                     var r = JSON.parse(result);
                     if(r.success)
                     {
-                        notify(
-                            'Course added',
-                            '<i>'+ name +'</i> added to <a href="/user/courses">My Courses</a> successfully',
-                            'success'
-                        );
+                        if($.inArray(Number(listId), listCourseDone) >= 0)
+                        {
+                            // Ask them to review the course
+                            notifyWithDelay(
+                                'Course added',
+                                'Would you like to review it? It takes no time at all ' +
+                                '<br/><a href="/review/new/' + courseId+ '">Review ' + name +
+                                    '</a> ',
+                                'success',
+                                60
+                            );
+                        }
+                        else if($.inArray(Number(listId), listEnrolled) >= 0)
+                        {
+                            // Ask them to review once they are done with the course
+                            notifyWithDelay(
+                                'Course added',
+                                '<i>'+ name +'</i> added to <a href="/user/courses">My Courses</a> successfully. ' +
+                                  'Don\'t forget to <a href="/review/new/' + courseId + '">review</a> the course once you finish it'
+                                ,
+                                'success',
+                                30
+                            );
+                        }
+                        else
+                        {
+                            // Interested
+                            notify(
+                                'Course added',
+                                '<i>'+ name +'</i> added to <a href="/user/courses">My Courses</a> successfully',
+                                'success'
+                            );
+                        }
+
+
 
                     }
                 }
@@ -85,6 +125,17 @@ jQuery(function($) {
             text: text,
             type: type,
             animation: 'show'
+        });
+    }
+
+    function notifyWithDelay( title, text, type, delay)
+    {
+        $.pnotify({
+            title: title,
+            text: text,
+            type: type,
+            animation: 'show',
+            delay: delay * 1000
         });
     }
 
@@ -254,74 +305,21 @@ jQuery(function($) {
     /**
      * Review course
      */
-    $('#review-form').submit(function(event){
+    $('#submit-review').click(function(event){
         event.preventDefault();
-        $('#review-form').attr('disabled',true);
+        $('#submit-review').attr('disabled',true);
 
-        // Get all the fields
-        var rating = $('#rating').raty('score');
-        var reviewText = $('textarea[name=review-text]').val();
-        var effort = $('input:text[name=effort]').val();
-        var progress = $('input:radio[name=progress]:checked').val();
-        var difficulty = $('input:radio[name=difficulty]:checked').val();
-        var level = $('input:radio[name=level]:checked').val();
-        var offeringId = $('#sessionOptions').val();
-        var status = $('#reviewStatus').val();
-        var reviewId = $('#reviewid').data("value");
-
-        // Validate the form
-        var validationError = false;
-
-        // Rating cannot be empty
-        if(rating === undefined) {
-            $('#rating-error').show();
-            validationError = true;
-        } else {
-            $('#rating-error').hide();
-        }
-
-        // progress cannot be empty
-        if(progress === undefined) {
-            $('#progress-error').show();
-            validationError = true;
-        } else {
-            $('#progress-error').hide();
-        }
-
-        // Review if exits should be atleast 20 words long
-        if(!isEmpty(reviewText)) {
-            // Non empty review. Should be 20 words long
-            var words = reviewText.split(' ');
-            if(words.length < 20) {
-                $('#review-text-error').show();
-                validationError = true;
-            } else {
-                $('#review-text-error').hide();
-            }
-        } else {
-            $('#review-text-error').hide();
-        }
+        var review = getReviewFormFields();
+        var validationError = validateReviewForm(review);
 
        if(!validationError) {
            try{
-                if(reviewId === undefined){
+                if(review.reviewId === undefined){
                     _gaq.push(['_trackEvent', 'Create Review', " " + $('#courseId').data("value")]);
                 } else {
                     _gaq.push(['_trackEvent', 'Update Review'," " +  $('#courseId').data("value")]);
                 }
            } catch(err){}
-
-           var review = {
-               'rating': rating,
-               'reviewText': reviewText,
-               'effort': effort,
-               'progress': progress,
-               'difficulty': difficulty,
-               'level':level,
-               'offeringId':offeringId,
-               'status':status,
-               'reviewId':reviewId
-           };
 
            $.ajax({
                type:"post",
@@ -341,10 +339,126 @@ jQuery(function($) {
            );
 
        } else {
-           $('#review-form').attr('disabled',false);
+           $('#submit-review').attr('disabled',false);
+
        }
 
     });
+
+    $('#submit-signup-review').click(function(event){
+        event.preventDefault();
+        $('#submit-signup-review').attr('disabled', true);
+
+        var review = getReviewFormFields();
+        var validationError = validateReviewForm(review);
+
+        if(!validationError) {
+            // Check if the user is logged in
+            $.ajax({
+                url: "/ajax/isLoggedIn",
+                cache: true
+            })
+            .done(function(result){
+                var loggedInResult = $.parseJSON(result);
+                if(!loggedInResult.loggedIn) {
+                    // Not logged in. Continue
+                    $.ajax({
+                        type:"post",
+                        url:"/review/save/" + $('#courseId').data("value"),
+                        data:JSON.stringify(review)
+                    })
+                        .done(
+                        function(result){
+                            result = JSON.parse(result);
+                            if(result['success']) {
+                                // Redirect to the course page
+                                $('#signupForm').modal('show');
+                            } else {
+                                // Show an error message
+                                showPinesNotification('error','Some error occurred',result['message']);
+                            }
+                        }
+                    );
+
+                }
+            });
+
+
+        }
+
+    });
+
+
+
+    var getReviewFormFields = function() {
+        // Get all the fields
+        var rating = $('#rating').raty('score');
+        var reviewText = $('textarea[name=review-text]').val();
+        var effort = $('input:text[name=effort]').val();
+        var progress = $('input:radio[name=progress]:checked').val();
+        var difficulty = $('input:radio[name=difficulty]:checked').val();
+        var level = $('input:radio[name=level]:checked').val();
+        var offeringId = $('#sessionOptions').val();
+        var status = $('#reviewStatus').val();
+        var reviewId = $('#reviewid').data("value");
+        var externalReviewerName = $('#ext-reviewer-name').val();
+        var externalReviewLink = $('#ext-review-link').val();
+
+        var review = {
+            'rating': rating,
+            'reviewText': reviewText,
+            'effort': effort,
+            'progress': progress,
+            'difficulty': difficulty,
+            'level':level,
+            'offeringId':offeringId,
+            'status':status,
+            'reviewId':reviewId,
+            'externalReviewerName': externalReviewerName,
+            'externalReviewLink': externalReviewLink
+        };
+
+        return review;
+    }
+
+    var validateReviewForm = function(review) {
+        // Validate the form
+        var validationError = false;
+
+        // Rating cannot be empty
+        if(review.rating === undefined) {
+            $('#rating-error').show();
+            validationError = true;
+        } else {
+            $('#rating-error').hide();
+        }
+
+        // progress cannot be empty
+        if(review.progress === undefined) {
+            $('#progress-error').show();
+            validationError = true;
+        } else {
+            $('#progress-error').hide();
+        }
+
+        // Review if exits should be atleast 20 words long
+        if(!isEmpty(review.reviewText)) {
+            // Non empty review. Should be 20 words long
+            var words = review.reviewText.split(' ');
+            if(words.length < 20) {
+                $('#review-text-error').show();
+                validationError = true;
+            } else {
+                $('#review-text-error').hide();
+            }
+        } else {
+            $('#review-text-error').hide();
+        }
+
+        return validationError;
+    }
+
+
 
     // Review feedback
     $('.review-feedback').bind('click',function(e){
@@ -376,6 +490,15 @@ jQuery(function($) {
 
     // Default notification false
     $.pnotify.defaults.history = false;
+
+    var showPinesNotification = function(type,title,text){
+        $.pnotify({
+            title: title,
+            text: text,
+            type: type,
+            animation: 'show'
+        });
+    }
 
     // Pines notification
     $('.flash-message').each(function(index,element){
