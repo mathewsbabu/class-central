@@ -1,4 +1,4 @@
-imports:
+  imports:
     - { resource: config.yml }
 
 #framework:
@@ -25,3 +25,11 @@ monolog:
             type: stream
             path: %kernel.logs_dir%/scheduler.%kernel.environment%.log
             channels: [ scheduler ]
+
+services:
+ mailgun:
+    class: ClassCentral\SiteBundle\Services\Mailgun
+    calls:
+      - [setApiKey,[%mailgun_api_key%]]
+      - [setDomain,[%mailgun_domain_name%]]
+      - [sendEmail, [true]]
